@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html dir="rtl">
+<head>
+    <title>לוח הבקרה למנהל - python tip</title>
+    <style>
+/* Reset some default styles */
+html, body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: #f7f7f7;
+}
+
+h1, h2 {
+    text-align: center;
+    margin-top: 50px;
+}
+
+/* Container for admin controls */
+.admin-container {
+    max-width: 500px;
+    margin: 30px auto;
+    padding: 20px;
+    border: 1px solid #ccc;
+    background-color: #fff;
+    border-radius: 5px;
+    overflow-y: auto; /* Add vertical scrollbar when necessary */
+    max-height: 600px; /* Set a fixed height to contain the message list */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Form styles */
+form {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+label {
+    display: block;
+    margin-bottom: 5px;
+}
+
+input[type="text"],
+input[type="password"] {
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    outline: none;
+}
+
+/* Styling for the button */
+.btn {
+    display: inline-block;
+    font-weight: bold;
+    text-decoration: none;
+    user-select: none;
+    transition: all 0.2s ease;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    font-size: 14px;
+    text-transform: uppercase;
+    padding: 12px 24px;
+    background-color: #007bff;
+    background-image: linear-gradient(45deg, #007bff, #00c6ff);
+    color: #fff;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Specific styling for the delete button */
+.btn.delete-btn {
+    background-color: #dc3545;
+    background-image: linear-gradient(45deg, #dc3545, #ff5b5b);
+}
+
+/* Button hover styles */
+.btn:hover {
+    background-color: #0056b3;
+    background-image: linear-gradient(45deg, #0056b3, #0072ff);
+}
+
+/* Delete button hover styles */
+.btn.delete-btn:hover {
+    background-color: #c82333;
+    background-image: linear-gradient(45deg, #c82333, #ff4040);
+}
+
+/* Button active styles */
+.btn:active {
+    transform: scale(0.95);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Popup styles */
+.popup {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #f44336;
+    color: white;
+    padding: 16px;
+    border-radius: 5px;
+    visibility: hidden;
+    opacity: 0;
+    transition: visibility 0s, opacity 0.5s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Popup show styles */
+.popup.show {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* Back button styles */
+.back-btn {
+    display: block;
+    margin: 0 auto;
+    padding: 10px 20px;
+    border: none;
+    border-radius: 25px;
+    background-color: #007bff;
+    background-image: linear-gradient(45deg, #007bff, #00c6ff);
+    color: #fff;
+    font-size: 14px;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Back button hover styles */
+.back-btn:hover {
+    background-color: #0056b3;
+    background-image: linear-gradient(45deg, #0056b3, #0072ff);
+}
+
+/* Back button active styles */
+.back-btn:active {
+    transform: scale(0.95);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Message list styles */
+#message-list {
+    list-style: none;
+    padding: 0;
+}
+
+#message-list li {
+    border-bottom: 1px solid #ccc;
+    padding: 8px 0;
+}
+
+#message-list li:last-child {
+    border-bottom: none;
+}
+    </style>
+</head>
+<body>
+    <h1>לוח הבקרה למנהל</h1>
+
+    <div class="admin-container">
+        <form id="admin-form">
+            {{ form.csrf_token }}
+
+            <label for="lock-web">נעילת האתר:</label>
+            <br>
+
+            <label for="delete">מחיקת הודעה לפי מספר:</label>
+            {{ form.delete(size=10) }}
+            <br>
+
+            <button type="button" class="btn lock-btn" onclick="adminLock()">נעילה</button>
+            <button type="button" class="btn unlock-btn" onclick="adminUnlock()">שחרור</button>
+            <button type="button" class="btn delete-btn" onclick="deleteMessage()">מחיקה</button>
+        </form>
+
+        <div class="popup" id="popup-message"></div>
+        <button class="btn back-btn" onclick="window.location.href='{{ url_for('index') }}'">חזור לדף הראשי</button>
+
+        <h2>רשימת הודעות</h2>
+        <ul id="message-list">
+            <!-- Messages will be dynamically loaded here -->
+        </ul>
+    </div>
+
+    <script>
+        function createDeleteButton(messageId) {
+            const deleteBtn = document.createElement("button");
+            deleteBtn.textContent = "Delete";
+            deleteBtn.addEventListener("click", () => deleteMessage(messageId));
+            return deleteBtn;
+        }
+
+        function deleteMessage(messageId) {
+            fetch("/admin", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": document.querySelector("[name=csrf_token]").value,
+                },
+                body: JSON.stringify({ delete: messageId }),
+            })
+                .then((response) => response.json())
+                .then((data) => {
+                    showMessage(data.success ? "Message deleted successfully!" : "Error deleting message!");
+                    loadMessages();
+                })
+                .catch((error) => {
+                    console.error("Error:", error);
+                });
+        }
+
+        function adminLock() {
+            sendAdminRequest(true, "Website locked successfully!");
+        }
+
+        function adminUnlock() {
+            sendAdminRequest(false, "Website unlocked successfully!");
+        }
+
+        function sendAdminRequest(lock, successMessage) {
+            fetch("/admin", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": document.querySelector("[name=csrf_token]").value,
+                },
+                body: JSON.stringify({ lock_web: lock }),
+            })
+                .then((response) => response.json())
+                .then((data) => {
+                    showMessage(data.success ? successMessage : "Error processing request!");
+                })
+                .catch((error) => {
+                    console.error("Error:", error);
+                });
+        }
+
+        function loadMessages() {
+            fetch("/fetch-admin")
+                .then((response) => response.json())
+                .then((data) => {
+                    const messageList = document.getElementById("message-list");
+                    messageList.innerHTML = ""; // Clear existing messages
+                    data.data.forEach((message) => {
+                        const listItem = document.createElement("li");
+                        listItem.textContent = `ID: ${message.id}, Message: ${message.message}, User: ${message.user_pub}`;
+                        const deleteBtn = createDeleteButton(message.id);
+                        listItem.appendChild(deleteBtn);
+                        messageList.appendChild(listItem);
+                    });
+                })
+                .catch((error) => {
+                    console.error("Error:", error);
+                });
+        }
+
+        function showMessage(message) {
+            const popup = document.getElementById("popup-message");
+            popup.textContent = message;
+            popup.classList.add("show");
+            setTimeout(() => {
+                popup.classList.remove("show");
+            }, 5000); // Hide the popup after 5 seconds
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            loadMessages();
+        });
+    </script>
+</body>
+</html>
