@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html dir="rtl">
+<head>
+    <title>python chat israel</title>
+    <style>
+        body {
+            text-align: right;
+            font-family: Arial, sans-serif;
+            background-color: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        #user-section {
+            font-size: 20px;
+            text-align: center;
+            color: #555;
+            margin-bottom: 2px;
+        }
+
+        #user-section p {
+            display: inline-block;
+            margin-right: 10px;
+        }
+
+        #user-section a {
+            padding: 7px 30px;
+            background-color: #dc3545;
+            color: #fff;
+            font-size: 16px;
+            border: none;
+            border-radius: 20px;
+            text-decoration: none;
+            transition: background-color 0.2s ease-in-out;
+        }
+
+        #user-section a:hover {
+            background-color: #c82333;
+        }
+
+        h1 {
+            font-size: 32px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        #messages-list-container {
+            max-width: 1000px;
+            width: 90%;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        #messages-list {
+            padding: 0;
+            margin: 0;
+            list-style-type: none;
+        }
+
+        #messages-list li {
+            padding: 10px;
+            border-bottom: 1px solid #e0e0e0;
+            margin: 5px 0;
+            font-size: 16px;
+            color: #333;
+        }
+
+        #add-message-form {
+            display: flex;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+        #message-input {
+            flex: 1;
+            width: 950px;
+            height: 25px;
+            padding: 10px;
+            font-size: 16px;
+            border: 1px solid #e0e0e0;
+            border-radius: 15px;
+            outline: none;
+            margin-right: 20px;
+            margin-bottom: 20px;
+            transition: border-color 0.2s ease-in-out;
+        }
+
+        #message-input:focus {
+            border-color: #007bff;
+        }
+
+        #add-message-btn {
+            padding: 13px 25px;
+            background-color: #007bff;
+            color: #fff;
+            font-size: 16px;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            margin-bottom: 20px;
+            margin-left: 1px;
+            transition: background-color 0.3s ease-in-out;
+        }
+
+        #add-message-btn:hover {
+            background-color: #0056b3;
+        }
+
+        .error-message {
+            color: red;
+            font-size: 20px;
+            margin-top: 10px;
+        }
+
+        /* Flash messages */
+        #flash-messages {
+            position: fixed;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 9999;
+        }
+
+        .flash-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .flash-message {
+            background-color: #007bff;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 10px;
+            margin-bottom: 5px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            opacity: 0;
+            animation: fadeInOut 0.5s ease-in-out;
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; }
+            25% { opacity: 1; }
+            75% { opacity: 1; }
+            100% { opacity: 0; }
+        }
+
+        /* "Not have message now" message */
+        .no-message {
+            text-align: center;
+            font-style: italic;
+            color: #999;
+            padding: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="user-section">
+        {% if 'user_name' in session %}
+            <p>שלום ל-{{ session.get('user_name') }}</p>
+            <a href="{{ url_for('log_out') }}" class="logout-btn">התנתק</a>
+        {% else %}
+            <p>Welcome, Guest</p>
+            <a href="{{ url_for('login') }}" class="logout-btn">התחבר</a>
+        {% endif %}
+    </div>
+
+    <h1>פייתון צא'ט</h1>
+    <div id="messages-list-container">
+        <ul id="messages-list">
+        </ul>
+    </div>
+
+    <form id="add-message-form">
+        <input type="text" id="message-input" required placeholder="הקלד את ההודעה כאן" autofocus>
+        <button type="submit" id="add-message-btn">שלח</button>
+    </form>
+
+    <!-- Element to display error messages -->
+    <div class="error-message" id="error-message"></div>
+    <div id="flash-messages" data-timeout="3000">
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="flash-container">
+                    {% for message in messages %}
+                        <div class="flash-message">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+    </div>
+    <script>
+        function hideFlashMessages() {
+            const flashContainer = document.querySelector("#flash-messages .flash-container");
+            if (flashContainer) {
+                const timeoutDuration = parseInt(flashContainer.parentElement.dataset.timeout);
+                setTimeout(function () {
+                    flashContainer.style.opacity = 0;
+                    setTimeout(function () {
+                        flashContainer.parentElement.removeChild(flashContainer);
+                    }, 500); // Wait 0.5 seconds for the fade-out animation to complete before removing the container
+                }, timeoutDuration);
+            }
+        }
+
+        function fetchMessages() {
+            const messagesList = document.getElementById("messages-list");
+            fetch("/fetch-app")
+                .then(response => response.json())
+                .then(data => {
+                    messagesList.innerHTML = "";
+
+                    if (data.message.length === 0) {
+                        const noMessageLi = document.createElement("li");
+                        noMessageLi.textContent = "אין עדיין הודעות היה הראשון לכתוב הודעת ברכה :)";
+                        noMessageLi.classList.add("no-message");
+                        messagesList.appendChild(noMessageLi);
+                    } else {
+                        data.message.forEach(item => {
+                            const userPub = item.user_pub;
+                            const message = item.message;
+
+
+                            const li = document.createElement("li");
+
+
+                            const userPubFormatted = document.createElement("strong");
+                            userPubFormatted.textContent = userPub + ":";
+
+
+                            li.appendChild(userPubFormatted);
+                            li.appendChild(document.createTextNode(" " + message));
+
+                            // Append the new message to the chat list
+                            messagesList.appendChild(li);
+                        });
+                    }
+                })
+                .catch(error => {
+                    if (error && error.error) {
+                        // Display the error message in a popup dialog
+                        window.alert(error.error);
+                    } else {
+                        // Display the general error message on the page
+                        const errorMessage = document.getElementById("error-message");
+                        errorMessage.textContent = "נכשלה הורדת ההודעות.";
+                    }
+                });
+        }
+
+        // Call the function to hide Flash messages when the DOM is loaded
+        document.addEventListener("DOMContentLoaded", function () {
+            hideFlashMessages();
+        });
+
+        // Fetch messages on page load
+        fetchMessages();
+
+        // Function to fetch messages every 30 seconds
+        function fetchMessagesPeriodically() {
+            fetchMessages();
+            setTimeout(fetchMessagesPeriodically, 30000); // 30 seconds
+        }
+
+        // Fetch messages every 30 seconds
+        fetchMessagesPeriodically();
+
+        // Handle form submission to add a new message
+        const addMessageForm = document.getElementById("add-message-form");
+        addMessageForm.addEventListener("submit", function (event) {
+            event.preventDefault();
+            const messageInput = document.getElementById("message-input");
+            const errorMessage = document.getElementById("error-message");
+            errorMessage.textContent = ""; // Clear any previous error messages
+
+            const message = messageInput.value;
+
+            // Prepare the request headers
+            const headers = new Headers();
+            headers.append("Content-Type", "application/json");
+            headers.append("X-CSRFToken", "{{ form.csrf_token._value() }}");
+
+            // Prepare the request body
+            const requestBody = JSON.stringify({ "message": message });
+
+            // Send the POST request
+            fetch("/add", {
+                method: "POST",
+                headers: headers,
+                body: requestBody
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.send === 'True') {
+                        // Message added successfully, fetch messages again to update the list
+                        fetchMessages();
+                    } else {
+                        // Display the error message on the page
+                        errorMessage.textContent = "הודעה לא נשלחה נסה שוב.";
+                    }
+                })
+                .catch(error => {
+                    // Check for specific error message and show the popup accordingly
+                    if (error && error.error && error.error === "permission error") {
+                        window.alert("שגיאת הרשאה: אין לך את הרשאות הנדרשות.");
+                    } else {
+                        // Display the general error message on the page
+                        errorMessage.textContent = "An error occurred: " + error;
+                    }
+                });
+
+            // Clear the input field after submission
+            messageInput.value = "";
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html dir="rtl">
+
+<head>
+    <title>הרשמה - python tip</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f7f7f7;
+        }
+
+        h1 {
+            text-align: center;
+            margin-top: 50px;
+        }
+
+        .login-container {
+            max-width: 500px;
+            margin: 30px auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            background-color: #fff;
+            border-radius: 5px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        input[type="text"],
+        input[type="password"] {
+            width: 95%;
+            padding: 12px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            outline: none;
+        }
+
+        .error-message {
+            color: red;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .register-btn {
+            background-color: #007bff;
+            color: #fff;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .register-btn:hover {
+            background-color: #0056b3;
+        }
+
+        .login-btn {
+            background-color: red;
+            color: #fff;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 5px;
+            margin-block: 10px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .login-btn:hover {
+            background-color: #0056b3;
+        }
+
+        /* Add the styles for the popup message */
+        .popup {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: #f44336;
+            color: white;
+            padding: 16px;
+            border-radius: 5px;
+            visibility: hidden;
+            opacity: 0;
+            transition: visibility 0s, opacity 0.5s;
+        }
+
+        .popup.show {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+    <h1>הרשמה</h1>
+
+    <div class="login-container">
+        <form id="register-form">
+            {{ form.csrf_token }}
+            <label for="username">שם משתמש:</label>
+            <input type="text" name="username" id="username" required>
+            <br>
+
+            <label for="password">סיסמא:</label>
+            <input type="password" name="password" id="password" required>
+            <br>
+
+            <button type="button" class="register-btn" onclick="register()">הרשמה</button>
+        </form>
+
+        <div class="popup" id="popup-message"></div>
+        <button class="login-btn" onclick="window.location.href='{{ url_for('login') }}'">התחברות</button>
+    </div>
+
+    <script>
+        function register() {
+            const form = document.getElementById("register-form");
+            const formData = new FormData(form);
+
+            // Extract the CSRF token value from the form
+            const csrfToken = form.elements.csrf_token.value;
+
+            // Add the CSRF token as a custom header in the Fetch API call
+            const headers = new Headers({
+                "X-CSRF-Token": csrfToken,
+                "X-Requested-With": "XMLHttpRequest"
+            });
+
+            fetch("/register", {
+                method: "POST",
+                body: formData,
+                headers: headers
+            })
+                .then(response => response.json())
+                .then(data => {
+                    const popup = document.getElementById("popup-message");
+                    if (data.success) {
+                        // Display the success message
+                        popup.textContent = data.success;
+                        popup.classList.add("show");
+                        setTimeout(() => {
+                            popup.classList.remove("show");
+                            // Redirect to the login page after success message display
+                            window.location.href = "{{ url_for('login') }}";
+                        }, 5000);
+                    } else {
+                        // Display the server-side error message
+                        popup.textContent = data.error;
+                        popup.classList.add("show");
+                        setTimeout(() => {
+                            popup.classList.remove("show");
+                        }, 5000);
+                    }
+                })
+                .catch(error => {
+                    console.error("Error:", error);
+                });
+        }
+
+        // Function to handle form submission on pressing the Enter key
+        function handleEnterKey(event) {
+            if (event.keyCode === 13) {
+                // Check if the Enter key is pressed (keyCode 13)
+                event.preventDefault();
+                register(); // Call the register() function to submit the form
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", function() {
+            const form = document.getElementById("register-form");
+
+            // Attach the event listeners to the password and username fields
+            const usernameField = document.getElementById("username");
+            const passwordField = document.getElementById("password");
+            usernameField.addEventListener("keydown", handleEnterKey);
+            passwordField.addEventListener("keydown", handleEnterKey);
+
+            // Show the popup message on page load (if any)
+            const popup = document.getElementById("popup-message");
+            if (popup.textContent.trim() !== "") {
+                popup.classList.add("show");
+                setTimeout(() => {
+                    popup.classList.remove("show");
+                }, 5000);
+            }
+        });
+    </script>
+</body>
+
+</html>
