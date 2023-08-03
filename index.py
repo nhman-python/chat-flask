@@ -34,7 +34,15 @@ LOCK = False
 SEND = True
 
 
+# -------------------- start function ------------------------------------- #
 def admin_required(view_func):
+    """
+    Decorator function to enforce that only users with administrative privileges can access specific views.
+
+    :param view_func: The original view function to be wrapped.
+    :return: The wrapped view function.
+    """
+
     @wraps(view_func)
     def wrapped_view(*args, **kwargs):
         user_name_check = session.get('user_name')
@@ -48,6 +56,13 @@ def admin_required(view_func):
 
 
 def login_required(view_func):
+    """
+    Decorator function to enforce that only authenticated users can access specific views.
+
+    :param view_func: The original view function to be wrapped.
+    :return: The wrapped view function.
+    """
+
     @wraps(view_func)
     def wrapped_view(*args, **kwargs):
         user_name_check = session.get('user_name')
@@ -61,6 +76,13 @@ def login_required(view_func):
 
 
 def unlock(view_func):
+    """
+    Decorator function to control access to views when the website is in a locked state.
+
+    :param view_func: The original view function to be wrapped.
+    :return: The wrapped view function.
+    """
+
     @wraps(view_func)
     def wrapped_view(*args, **kwargs):
         if LOCK:
@@ -73,12 +95,22 @@ def unlock(view_func):
 
 
 def fetch_post() -> List[Dict[str, Any]]:
+    """
+    Fetches all the messages from the "message" table in the database.
+
+    :return: A list of dictionaries representing the messages, each containing "message" and "user_pub" keys.
+    """
     response = supabase.from_("message").select("message, user_pub").execute().json()
     messages = json.loads(response)
     return messages.get('data')
 
 
 def admin_lock() -> bool:
+    """
+    Locks the website by updating the "admin-panel" table in the database.
+
+    :return: True if the website is successfully locked; otherwise, False.
+    """
     global LOCK, SEND
     try:
         update_data = {'lock': True, 'send': False}
@@ -90,6 +122,11 @@ def admin_lock() -> bool:
 
 
 def admin_unlock() -> bool:
+    """
+    Unlocks the website by updating the "admin-panel" table in the database.
+
+    :return: True if the website is successfully unlocked; otherwise, False.
+    """
     global LOCK, SEND
     try:
         update_data = {'lock': False, 'send': True}
@@ -101,6 +138,12 @@ def admin_unlock() -> bool:
 
 
 def user_exists(username: str) -> bool:
+    """
+    Checks if a user with the given username exists in the "users" table of the database.
+
+    :param username: The username to check.
+    :return: True if the user exists; otherwise, False.
+    """
     try:
         response = supabase.from_("users").select("username").eq("username", username).limit(1).execute().json()
         user_data_list = json.loads(response).get('data')
@@ -110,6 +153,13 @@ def user_exists(username: str) -> bool:
 
 
 def new_user(username: str, password: str) -> bool:
+    """
+    Creates a new user in the "users" table of the database.
+
+    :param username: The username for the new user.
+    :param password: The password for the new user.
+    :return: True if the user is successfully created; otherwise, False.
+    """
     try:
         check = user_exists(username)
         if check:
@@ -123,6 +173,13 @@ def new_user(username: str, password: str) -> bool:
 
 
 def authenticate_user(username: str, password: str) -> bool:
+    """
+    Authenticates a user by checking if the provided username and password match a user in the database.
+
+    :param username: The username to authenticate.
+    :param password: The password to authenticate.
+    :return: True if the user is authenticated and has administrative privileges (admin=True); otherwise, False.
+    """
     try:
         response = supabase.from_("users").select("username", "password", "admin").eq("username", username).limit(
             1).execute().json()
@@ -139,6 +196,13 @@ def authenticate_user(username: str, password: str) -> bool:
 
 
 def send_post(post: str, user: str) -> bool:
+    """
+    Sends a new post to the database with the name of the user who sent the message.
+
+    :param post: The text of the message to post.
+    :param user: The username of the user sending the message.
+    :return: True if the message is successfully sent; otherwise, False.
+    """
     try:
         res = supabase.from_('message').insert({'message': post, 'user_pub': user}).execute()
         return tuple(res)[0][1]
@@ -146,12 +210,23 @@ def send_post(post: str, user: str) -> bool:
         return False
 
 
-def fetch_admin() -> List[Dict[str, Any]]:
+def fetch_admin() -> json:
+    """
+    Fetches all the messages from the "message" table in the database for the admin-panel.
+
+    :return: A list of dictionaries representing the messages, each containing "id" "message" and "user_pub" keys.
+    """
     res = supabase.from_('message').select('id', 'message', 'user_pub').execute()
     return res.json()
 
 
 def delete_by_id(message_id: str) -> bool:
+    """
+    Deletes a message from the "message" table in the database based on its ID.
+
+    :param message_id: The ID of the message to delete.
+    :return: True if the message is successfully deleted; otherwise, False.
+    """
     try:
         res = supabase.from_('message').delete().eq('id', message_id).execute()
         return tuple(res)[0][1]
@@ -160,12 +235,70 @@ def delete_by_id(message_id: str) -> bool:
 
 
 def allow_cher(_, field):
-    if re.search(r'[@#^&*\[\]{}|<>]', field.data):
+    """
+    Custom validator function for the form class to check if the field data contains special characters.
+
+    :param _: The FlaskForm instance (not used in the function).
+    :param field: The field to validate.
+    :raises ValidationError: If special characters
+    (e.g., '@', '#', '^', '[', ']', '{', '}', '|', '<', '>') are found in the field data.
+    """
+    if re.search(r'[@#^\[\]{}|<>]', field.data):
         raise ValidationError('Special characters are not allowed.')
 
 
+def valid_name(name: str) -> bool:
+    """
+    Checks if a given name is valid based on the specified pattern.
+    The name is considered valid if it contains only letters
+    (both uppercase and lowercase) and has a length between 4 and 12 characters.
+
+    :param name: name (str): The name to be validated.
+    :return: bool: True if the name is valid; otherwise, False.
+    """
+    pattern = r'^[a-zA-Z]{4,12}$'
+    return bool(re.match(pattern, name))
+
+
+# ------------------------- start class -------------------------------#
+class AddMessage(FlaskForm):
+    message = StringField('message', validators=[InputRequired(),
+                                                 allow_cher,
+                                                 Length(max=100, message='max 100 letter allow')])
+
+
+class Login(FlaskForm):
+    password = PasswordField('password', validators=[InputRequired()])
+    username = StringField('username', validators=[InputRequired()])
+
+
+class Register(FlaskForm):
+    password = PasswordField('password', validators=[InputRequired(), Length(min=8, max=100)])
+    username = StringField('username', validators=[InputRequired(), Length(min=4, max=12)])
+
+
+class AdminForm(FlaskForm):
+    lock_web = BooleanField('Lock Website')
+    delete = StringField('messgae-id')
+    submit = SubmitField('Save')
+
+
+# ----------------- start route -------------------------------------#
 @app.before_request
 def check_path():
+    """
+    Before each request, this function is called to check the path and control access based on the LOCK status.
+
+    If the website is locked (LOCK is True), it checks if the requested path is allowed for locked users (ALLOW_LOCK).
+    If the path is allowed for locked users, the request continues as usual; otherwise,
+    it redirects to the 'lock' route.
+
+    If the website isn't locked (LOCK is False), it checks if the requested path allowed for all users (ALLOW_PATH).
+    If the path is allowed for all users, the request continues as usual; otherwise,
+    it redirects to the root path ('/').
+
+    :return:
+    """
     if LOCK:
         if request.path in ALLOW_LOCK:
             return
@@ -174,7 +307,6 @@ def check_path():
     if request.path not in ALLOW_PATH:
         return redirect('/')
     return
-
 
 
 @app.after_request
@@ -191,12 +323,6 @@ def csrf_token_missing_error(error):
     else:
         flash('bad request', 'error'), 400
         return jsonify({'error': 'בקשה שגויה טען את הדף מחדש'}), 400
-
-
-class AddMessage(FlaskForm):
-    message = StringField('message', validators=[InputRequired(),
-                                                 allow_cher,
-                                                 Length(max=100, message='max 100 letter allow')])
 
 
 @app.route('/', methods=['GET'])
@@ -237,11 +363,6 @@ def fetch_all():
     return jsonify({'message': fetch_post()})
 
 
-class Login(FlaskForm):
-    password = PasswordField('password', validators=[InputRequired()])
-    username = StringField('username', validators=[InputRequired()])
-
-
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     form = Login()
@@ -259,16 +380,6 @@ def login():
                                      'שוב מאוחר יותר'})
 
     return render_template('login.html', form=form)
-
-
-def valid_name(name: str) -> bool:
-    pattern = r'^[a-zA-Z]{4,12}$'
-    return bool(re.match(pattern, name))
-
-
-class Register(FlaskForm):
-    password = PasswordField('password', validators=[InputRequired(), Length(min=8, max=100)])
-    username = StringField('username', validators=[InputRequired(), Length(min=4, max=12)])
 
 
 @app.route('/register', methods=['POST', 'GET'])
@@ -297,12 +408,6 @@ def log_out():
 @unlock
 def lock():
     return render_template('lock.html')
-
-
-class AdminForm(FlaskForm):
-    lock_web = BooleanField('Lock Website')
-    delete = StringField('messgae-id')
-    submit = SubmitField('Save')
 
 
 @app.route('/fetch-admin', methods=['GET'])
@@ -335,6 +440,8 @@ def admin_panel():
 def favicon():
     return send_file('templates/chat.png', mimetype='image/png')
 
+
+# ----------------- end route -------------------------------------#
 
 if __name__ == '__main__':
     app.run(debug=False)
